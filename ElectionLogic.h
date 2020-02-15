@@ -22,7 +22,6 @@ class ElectionLogic {
 
     void stepDown();
 
-
 };
 
 

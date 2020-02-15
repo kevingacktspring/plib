@@ -3,3 +3,31 @@
 //
 
 #include "ElectionLogic.h"
+
+void ElectionLogic::requestVote(){
+
+}
+
+void ElectionLogic::handleRequestVoteRequest(){
+
+}
+
+void ElectionLogic::handleReqeustVoteResponse(){
+
+}
+
+void ElectionLogic::becomeLeader(){
+
+}
+
+void ElectionLogic::electionTimeOut(){
+
+}
+
+void ElectionLogic::leaderShipTimeout(){
+
+}
+
+void ElectionLogic::stepDown(){
+
+}

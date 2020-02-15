@@ -47,6 +47,11 @@ int ProtocalServerUDP::initService() {
 
     printf("epollserver startup,port %d, max connection is %d, backlog is %d\n", servPort, MAXEPOLLSIZE, listenq);
 
+    // Receive buffer
+    char recv_buffer[MAXLINE];
+
+
+
     while (true) {
         nfds = epoll_wait(epfd, events, MAXEPOLLSIZE, -1);
         if (nfds == -1) {
@@ -57,13 +62,17 @@ int ProtocalServerUDP::initService() {
         for (int n = 0; n < nfds; ++n) {
             int i, fd;
             fd = events[i].data.fd;
-            //根据描述符的类型和事件类型进行处理
+
+            // int rsize = recvfrom(fd, recv_buffer, MAXLINE, 0, (struct sockaddr *) NULL, sizeof(sockaddr_in));
+
+            /* UDP dont need accept
             if ((fd == listenfd) && (events[i].events & EPOLLIN))
                 handle_accpet(epfd, listenfd);
             else if (events[i].events & EPOLLIN)
                 do_read(epfd, fd, buf);
             else if (events[i].events & EPOLLOUT)
                 do_write(epfd, fd, buf);
+            */
         }
     }
     return 0;
@@ -160,7 +169,7 @@ int ProtocalServerUDP::handle(int connfd) {
     return 0;
 }
 
-ProtocalServerUDP::ProtocalServerUDP(int servPort, int listenq) : servPort(servPort){
+ProtocalServerUDP::ProtocalServerUDP(int servPort) : servPort(servPort) {
     int ret = initService();
     if (ret < 0) {
         printf("start epoll server fail\n");

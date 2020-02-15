@@ -19,7 +19,7 @@
 
 class ProtocalServerUDP {
 public:
-    ProtocalServerUDP(int servPort);
+    ProtocalServerUDP(int servPort, int listenq);
 
     virtual ~ProtocalServerUDP();
 
