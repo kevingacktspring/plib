@@ -27,13 +27,13 @@ public:
 
     virtual ~ProtocalClientUDP();
 
-    void send();
-
-    const std::string& handle(int sockfd, const std::string &message);
+    const std::string& handle(const std::string &message);
 
     // Server Info
-    char *servInetAddr;
     int servPort;
+    struct hostent *server;
+    char *servInetAddr;
+    int serverlen;
 
     // Socket
     int connfd;

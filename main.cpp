@@ -1,20 +1,34 @@
 #include <iostream>
-#include "ProtocalServerUDP.h"
-#include "ProtocalClientUDP.h"
+#include <signal.h>
+#include "ProtocalServerEpoll.h"
+#include "ProtocalServerSelect.h"
+
+/* Catch Signal Handler function */
+void signal_callback_handler(int signum) {
+    printf("Caught signal SIGPIPE %d\n", signum);
+}
 
 int main() {
-    std::cout << "Entry here" << std::endl;
+    std::cout << "App Server Entry here" << std::endl;
 
-    /* 设置每个进程允许打开的最大文件数 */
+    /**
+     * Catch Signal Handler SIGPIPE
+     */
+    signal(SIGPIPE, signal_callback_handler);
+
+    /**
+     * set max resource limit for procedure
+     */
     struct rlimit rt;
     rt.rlim_max = rt.rlim_cur = MAXEPOLLSIZE;
     if (setrlimit(RLIMIT_NOFILE, &rt) == -1) {
         perror("setrlimit error");
         return -1;
     }
-    ProtocalClientUDP clientUdp("127.0.0.1\0", 8080);
-    //ProtocalServerUDP protocalServer(6888, 1024);
-    //protocalServer.initService();
+
+    ProtocalServerEpoll protocalServer(9090);
+    // ProtocalServerSelect protocalServer(8080);
+    protocalServer.initService();
 
     std::cout << "Success here" << std::endl;
 
