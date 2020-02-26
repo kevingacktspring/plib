@@ -61,6 +61,8 @@ protected:
 
     char *hostaddrp;  /* dotted decimal host addr string */
     int optval; /* flag value for setsockopt */
+
+    struct epoll_event tcp_accept_event;  /* new accepted socket*/
 };
 
 

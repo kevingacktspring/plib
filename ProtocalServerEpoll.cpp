@@ -5,6 +5,7 @@
 #include <strings.h>
 #include <cstring>
 #include <cstdlib>
+#include <errno.h>
 
 #include "ProtocalServerEpoll.h"
 
@@ -144,17 +145,22 @@ int ProtocalServerEpoll::initService() {
              * deal tcp listen
              */
             if ((triggered_fd == listenfd) && (comming_event.events & EPOLLIN)) {
-                int acceptedfd = accept(listenfd, (struct sockaddr *) &clientaddr, (socklen_t *) &clientlen);
-                if (acceptedfd > 0) {
+                int acceptedfd;
+                while((acceptedfd = accept(listenfd, (struct sockaddr *) &clientaddr, (socklen_t *) &clientlen)) > 0) {
                     setnonblocking(acceptedfd); /*set nonblock*/
-                    struct epoll_event tcp_accept_event;
+                    memset(&tcp_accept_event, 0, sizeof( struct epoll_event));
                     tcp_accept_event.events = EPOLLIN | EPOLLET;
                     tcp_accept_event.data.fd = acceptedfd;
                     if (epoll_ctl(epfd, EPOLL_CTL_ADD, acceptedfd, &tcp_accept_event) < 0) {
                         fprintf(stderr, "epoll set insertion error: fd = %d \n", acceptedfd);
-                        return -1;
+                        exit(EXIT_FAILURE);
                     }
                     printf("new incoming connection - %d\n", acceptedfd);
+                }
+                if (acceptedfd == -1) {
+                    if (errno != EAGAIN && errno != ECONNABORTED && errno != EPROTO && errno != EINTR) {
+                        perror("accept");
+                    }
                 }
                 continue;
             }
@@ -188,10 +194,30 @@ int ProtocalServerEpoll::initService() {
              * epoll read
              */
             if (comming_event.events & EPOLLIN) {
+                int nread = 0;
+                msgsize = 0;
+                while ((nread = read(triggered_fd, recvbuffer+msgsize, BUFSIZE - 1)) > 0) {
+                    msgsize += nread;
+                }
+                if (nread == -1 && errno != EAGAIN) {
+                    perror("read error");
+                    rmBadFd(triggered_fd);
+                    continue;
+                }
+                printf("Message from tcp client: %s \n", recvbuffer);
+
+                memset(&tcp_accept_event, 0, sizeof( struct epoll_event));
+                tcp_accept_event.events = comming_event.events | EPOLLOUT;
+                tcp_accept_event.data.fd = triggered_fd;
+                if (epoll_ctl(epfd, EPOLL_CTL_MOD, triggered_fd, &tcp_accept_event) == -1) {
+                    perror("epoll_ctl: mod error");
+                    rmBadFd(triggered_fd);
+                    continue;
+                }
+                /*
                 msgsize = read(triggered_fd, recvbuffer, BUFSIZE);
                 if (msgsize == -1) {
                     printf("Error in tcp read \n");
-                    rmBadFd(triggered_fd);
                     continue;
                 }
                 printf("Message from tcp client: %s \n", recvbuffer);
@@ -202,9 +228,35 @@ int ProtocalServerEpoll::initService() {
                     rmBadFd(triggered_fd);
                     continue;
                 }
+                */
                 printf("Server received %d/%d bytes: %s\n", strlen(recvbuffer), msgsize, recvbuffer);
             }
 
+            if (comming_event.events & EPOLLOUT) {
+                sprintf(recvbuffer, "HTTP/1.1 200 OK\r\nContent-length: %d\r\n\r\nreceived vote.\0",15);
+                int nwrite, datasize = strlen(recvbuffer);
+                writesize = datasize;
+                while (writesize > 0) {
+                    nwrite = write(triggered_fd, recvbuffer + datasize - writesize, writesize);
+                    if (nwrite < writesize) {
+                        if (nwrite == -1 && errno != EAGAIN) {
+                            perror("write error");
+                            rmBadFd(triggered_fd);
+                        }
+                        break;
+                    }
+                    writesize -= nwrite;
+                }
+                memset(&tcp_accept_event, 0, sizeof( struct epoll_event));
+                tcp_accept_event.events = comming_event.events & ~EPOLLOUT;
+                tcp_accept_event.data.fd = triggered_fd;
+                if (epoll_ctl(epfd, EPOLL_CTL_MOD, triggered_fd, &tcp_accept_event) == -1) {
+                    perror("epoll_ctl: mod error");
+                    rmBadFd(triggered_fd);
+                    continue;
+                }
+                // close(triggered_fd);
+            }
             printf("event-size: %d\n", sizeof(events)/sizeof(struct epoll_event));
         }
     }

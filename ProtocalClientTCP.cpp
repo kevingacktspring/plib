@@ -58,6 +58,7 @@ const std::string &ProtocalClientTCP::handle(const std::string &message) {
     int rsize = read(connfd, recv_buffer, MAXLINE);
     if (rsize == -1)
         return "no response";
-    printf("response %s \n", recv_buffer);
-    return std::move(std::string(recv_buffer, rsize));
+    printf("response size %d \n", rsize);
+    printf("response content %s \n", recv_buffer);
+    return "";
 }
