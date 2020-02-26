@@ -134,8 +134,7 @@ int ProtocalServerEpoll::initService() {
              * An error has occured on this fd, or the socket is not
              * ready for reading
              */
-            if ((comming_event.events & EPOLLERR) || (comming_event.events & EPOLLHUP) ||
-                (!(comming_event.events & EPOLLIN))) {
+            if ((comming_event.events & EPOLLERR) || (comming_event.events & EPOLLHUP)) {
                 fprintf(stderr, "epoll error\n");
                 rmBadFd(triggered_fd);
                 continue;
@@ -233,7 +232,7 @@ int ProtocalServerEpoll::initService() {
             }
 
             if (comming_event.events & EPOLLOUT) {
-                sprintf(recvbuffer, "HTTP/1.1 200 OK\r\nContent-length: %d\r\n\r\nreceived vote.\0",15);
+                sprintf(recvbuffer, "HTTP/1.1 200 OK\r\nContent-length: %d\r\n\r\nreceived vote\0\n",15);
                 int nwrite, datasize = strlen(recvbuffer);
                 writesize = datasize;
                 while (writesize > 0) {
@@ -248,7 +247,7 @@ int ProtocalServerEpoll::initService() {
                     writesize -= nwrite;
                 }
                 memset(&tcp_accept_event, 0, sizeof( struct epoll_event));
-                tcp_accept_event.events = comming_event.events & ~EPOLLOUT;
+                tcp_accept_event.events = (comming_event.events & ~EPOLLOUT) | EPOLLIN;
                 tcp_accept_event.data.fd = triggered_fd;
                 if (epoll_ctl(epfd, EPOLL_CTL_MOD, triggered_fd, &tcp_accept_event) == -1) {
                     perror("epoll_ctl: mod error");
