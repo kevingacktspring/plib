@@ -22,6 +22,7 @@ struct __attribute__((__packed__)) ReqeustVoteResp {
     uint64_t term;
     uint16_t candidateId;
     bool voteGrated;
+    uint64_t requestTerm;
 };
 
 inline static void compressReqeustVoteReq(const ReqeustVoteReq &reqeustVoteReq, DataPacket &dataProtocal) {

@@ -3,3 +3,7 @@
 //
 
 #include "SegmentLog.h"
+
+SegmentLog::SegmentLog() {
+
+}

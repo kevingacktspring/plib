@@ -18,26 +18,33 @@
 #include <string>
 #include <strings.h>
 
+#include "FdUtils.h"
+#include "StateLocalData.h"
+
 #define MAXLINE 4096
 #define MAXRETRY 3
 
 class ProtocalClientTCP {
 public:
-    ProtocalClientTCP(char *servInetAddr, int servPort);
+    ProtocalClientTCP(VolatileState *node_state);
 
     virtual ~ProtocalClientTCP();
 
     const std::string& handle(const std::string &message);
 
+    int doConnect();
+
     // Server Info
-    int servPort;
     struct hostent *server;
-    char *servInetAddr;
-    int serverlen;
+    struct sockaddr_in servaddr;
 
     // Socket
     int connfd;
-    struct sockaddr_in servaddr;
+
+    /**
+     * cluster
+     */
+     const VolatileState *node_state;  // current-server state
 };
 
 #endif //PLIB_PROTOCALCLIENTTCP_H

@@ -8,30 +8,45 @@
 #include <stdint.h>
 #include "SegmentLog.h"
 
+enum class Role {
+    unknow      = 0,
+    candidate   = 1,
+    leader      = 2
+};
+
 /**
  * Persist state in all servers
  */
-struct __attribute__ ((__packed__)) PersistState{
+struct __attribute__ ((__packed__)) PersistState {
     uint64_t currentTerm;
+    uint64_t voteFor;
+    SegmentLog *logs;
+
     uint64_t lastAppliedIndex;
-    uint64_t segmentInitIndex;
-    uint16_t voteFor;
-    SegmentLog logs;
+
+    Role  nodeRole = Role::candidate;
+    uint64_t electionTimeNano = 0;
+
+    std::atomic<uint64_t> leaderId{0};
+    std::atomic<uint64_t> commitIndex{0};
+    std::atomic<uint64_t> lastApplied{0};
+
+    PersistState(SegmentLog *logs) : logs(logs) {}
 };
 
 /**
  * Volatile state on all servers
  */
-struct __attribute__ ((__packed__)) VolatileState{
-    uint16_t clusterId;
-    char * cname;
-    uint16_t port;
+struct __attribute__ ((__packed__)) VolatileState {
+    const uint16_t nodeid;
+    const char * servInetAddr;
+    const uint16_t servPort;
 
-    bool responedVote;
-    bool grantedVote;
+    bool responedVote = false;
+    bool grantedVote = false;
 
-    uint64_t matchIndex;
-    uint64_t nextIndex;
+    uint64_t matchIndex = 0;
+    uint64_t nextIndex = 0;
 
     uint64_t lastRequestTimeNano;
     uint64_t nextRequestTimeNano;

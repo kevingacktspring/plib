@@ -7,7 +7,9 @@
 
 #include <stdint.h>
 #include <unordered_map>
+#include <vector>
 #include <cstring>
+#include <atomic>
 #include "DataProtocalSerializer.h"
 
 /**
@@ -45,8 +47,16 @@ static void decompressLogEntries(const DataPacket &dataProtocal, LogEntries &log
 }
 
 class SegmentLog {
-    std::unordered_map<std::string, std::string> log;
+public:
+    SegmentLog();
 
+    virtual ~SegmentLog() = default;
+
+    std::unordered_map<std::string, std::string> log_map;
+    std::vector<std::string> log;
+
+    std::atomic<uint64_t> first_index{0};
+    std::atomic<uint64_t> last_index{0};
 };
 
 

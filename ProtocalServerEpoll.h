@@ -14,14 +14,20 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <deque>
+#include <iostream>
+#include <map>
+#include <atomic>
 
-#define MAXEPOLLSIZE 10000
+#include "StateLocalData.h"
+#include "ProtocalClientTCP.h"
+
+#define MAXEPOLLSIZE 1000
 #define DEFAULT_LISTEN_QUEUE 128
 #define BUFSIZE 4096
 
 class ProtocalServerEpoll {
 public:
-    ProtocalServerEpoll(int servPort);
+    ProtocalServerEpoll(VolatileState *node_state, VolatileState *(*cluster_state), uint8_t cluster_size);
 
     virtual ~ProtocalServerEpoll();
 
@@ -29,40 +35,67 @@ public:
 
     int initService();
 
-    void rmBadFd(const int);
+    void rmBadFd(const int badfd);
 
+    void registerClient(ProtocalClientTCP *client);
+
+    void addClientEpollEvent(ProtocalClientTCP *client);
+
+    void modClientEpollEvent(ProtocalClientTCP *client);
+
+    void closeEpollServer();
 
 protected:
-    struct epoll_event tcp_listen_event;
-    struct epoll_event udp_receive_event;
-
-    struct epoll_event events[MAXEPOLLSIZE];
-
-    int servPort;
-
+    /**
+     * socket fds
+     */
     int listenfd; /* fd tcp listen */
     int udpfd;  /* fd epoll wait resp */
 
-    int epfd; /*fd create epoll*/
-    int nfds; /*fd epoll wait resp*/
-
-    std::deque<int> readque;
+    std::deque<int> readque;  // record all accepted fds
 
     struct sockaddr_in serveraddr; /* server's addr */
     struct sockaddr_in clientaddr; /* client addr */
-
     int clientlen; /* byte sieze of client's address */
-    int msgsize; /* message byte size */
-    int writesize; /* write byte size */
-
-    char recvbuffer[BUFSIZE]; /* message buf */
 
     struct hostent *hostp; /* client host info */
 
     char *hostaddrp;  /* dotted decimal host addr string */
     int optval; /* flag value for setsockopt */
 
+    /**
+     * epoll fds
+     */
+    struct epoll_event tcp_listen_event;
+    struct epoll_event udp_receive_event;
+
+    struct epoll_event events[MAXEPOLLSIZE];
+
+    int epfd; /*fd create epoll*/
+    int nfds; /*fd epoll wait resp*/
+
     struct epoll_event tcp_accept_event;  /* new accepted socket*/
+
+    /**
+     * cluster
+     */
+    VolatileState *node_state;  // current-server state
+    VolatileState **cluster_state;  // cluster-servers state
+    uint8_t cluster_size;
+
+    /**
+     * read/write buffer
+     */
+    int msgsize; /* message byte size */
+    int writesize; /* write byte size */
+    char recvbuffer[BUFSIZE]; /* message buf */
+
+    /**
+     * map<fd, client>
+     */
+    std::map<int, ProtocalClientTCP *> clientmap;
+
+    std::atomic_bool keep_running = ATOMIC_VAR_INIT(true);
 };
 
 
