@@ -45,6 +45,8 @@ public:
 
     void closeEpollServer();
 
+    bool regEpollResponse(const epoll_event comming_event, const int triggered_fd);
+
 protected:
     /**
      * socket fds

@@ -34,9 +34,12 @@ public:
 
     int doConnect();
 
+    int closeConnSocket();
+
     // Server Info
     struct hostent *server;
     struct sockaddr_in servaddr;
+    struct addrinfo hints;
 
     // Socket
     int connfd;

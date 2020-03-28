@@ -7,8 +7,9 @@
 #include <cstdlib>
 #include <errno.h>
 
-#include "ProtocalServerEpoll.h"
 #include "FdUtils.h"
+#include "RequestVoteCommand.h"
+#include "ProtocalServerEpoll.h"
 
 int ProtocalServerEpoll::initService() {
     printf("Epoll service doing initialize. \n");
@@ -135,6 +136,7 @@ int ProtocalServerEpoll::initService() {
                 printf("Message from tcp client: %s \n", recvbuffer);
 
                 //debug
+                /*
                 auto debug = std::string(recvbuffer).find("HTTP/1.1 200 OK");
                 if (debug == std::string::npos) { // not the fake response
                     memset(&tcp_accept_event, 0, sizeof(struct epoll_event));
@@ -146,7 +148,41 @@ int ProtocalServerEpoll::initService() {
                         continue;
                     }
                 }
+                */
 
+                /**
+                 * deal with vote request and response
+                 */
+                MessagePacket messagePacket{static_cast<uint64_t>(msgsize), recvbuffer};
+                DataPacket dataPacket;
+                deCompressDataPacket(messagePacket, dataPacket);
+                if (dataPacket.msgtype == request_vote_request) {
+                    // register write(response) for request
+                    if (!regEpollResponse(comming_event, triggered_fd)) {
+                        continue;
+                    }
+                    // print debug
+                    ReqeustVoteReq deVoteReq;
+                    decompressReqeustVoteReq(dataPacket, deVoteReq);
+                    std::cout << "Got vote from nodeid: " << deVoteReq.candidateId << std::endl
+                              << "                term: " << deVoteReq.term << std::endl
+                              << "        lastLogIndex: " << deVoteReq.lastLogIndex << std::endl
+                              << "         lastLogTerm: " << deVoteReq.lastLogTerm << std::endl;
+                } else if (dataPacket.msgtype == request_vote_response) {
+                    // dont register write for response
+                    // print debug
+                    ReqeustVoteResp deVoteResp;
+                    decompressReqeustVoteResp(dataPacket, deVoteResp);
+                    std::cout << "Got response of vote from nodeid: " << deVoteResp.candidateId << std::endl
+                              << "                            term: " << deVoteResp.term << std::endl
+                              << "                     requestTerm: " << deVoteResp.requestTerm << std::endl
+                              << "                      voteGrated: " << deVoteResp.voteGrated << std::endl;
+                }
+
+                //
+                free(dataPacket.body);
+
+                // general logs
                 printf("Server received %d/%d bytes: %s\n", strlen(recvbuffer), msgsize, recvbuffer);
             }
 
@@ -155,11 +191,25 @@ int ProtocalServerEpoll::initService() {
              */
             if (comming_event.events & EPOLLOUT) {
                 fprintf(stdout, "Triggered EPOLLOUT, fd = %d \n", triggered_fd);
-                sprintf(recvbuffer, "HTTP/1.1 200 OK\r\nContent-length: %d\r\n\r\nreceived vote\0\n", 15);
-                int nwrite, datasize = strlen(recvbuffer);
+
+                // debug
+                // sprintf(recvbuffer, "HTTP/1.1 200 OK\r\nContent-length: %d\r\n\r\nreceived vote\0\n", 15);
+
+                // debug
+                ReqeustVoteResp voteResp {0, node_state->nodeid, true, 0};
+                DataPacket dataPacket;
+                dataPacket.msgtype = Type::request_vote_response;
+                compressReqeustVoteResp(voteResp, dataPacket);
+
+                MessagePacket messagePacket;
+                compressDataPacket(dataPacket, messagePacket);
+
+                // int nwrite, datasize = strlen(recvbuffer);
+                int nwrite, datasize = messagePacket.length;
                 writesize = datasize;
                 while (writesize > 0) {
-                    nwrite = write(triggered_fd, recvbuffer + datasize - writesize, writesize);
+                    // nwrite = write(triggered_fd, recvbuffer + datasize - writesize, writesize);
+                    nwrite = write(triggered_fd, messagePacket.body + datasize - writesize, writesize);
                     if (nwrite < writesize) {
                         if (nwrite == -1 && errno != EAGAIN) {
                             perror("write error");
@@ -169,6 +219,11 @@ int ProtocalServerEpoll::initService() {
                     }
                     writesize -= nwrite;
                 }
+
+                //
+                free(messagePacket.body);
+
+                // register epoll read when write completed
                 memset(&tcp_accept_event, 0, sizeof(struct epoll_event));
                 tcp_accept_event.events = (comming_event.events & ~EPOLLOUT) | EPOLLIN;
                 tcp_accept_event.data.fd = triggered_fd;
@@ -359,6 +414,7 @@ void ProtocalServerEpoll::registerClient(ProtocalClientTCP *client) {
      */
     if (client->doConnect() < 0) {
         fprintf(stdout, "fail register client node-id: %d \n", client->node_state->nodeid);
+        client->closeConnSocket();
         return;
     }
 
@@ -403,3 +459,16 @@ void ProtocalServerEpoll::modClientEpollEvent(ProtocalClientTCP *client) {
 void ProtocalServerEpoll::closeEpollServer() {
     this->keep_running.store(false);
 }
+
+bool ProtocalServerEpoll::regEpollResponse(const epoll_event comming_event, const int triggered_fd) {
+    memset(&tcp_accept_event, 0, sizeof(struct epoll_event));
+    tcp_accept_event.events = comming_event.events | EPOLLOUT;
+    tcp_accept_event.data.fd = triggered_fd;
+    if (epoll_ctl(epfd, EPOLL_CTL_MOD, triggered_fd, &tcp_accept_event) == -1) {
+        perror("epoll_ctl: mod error");
+        rmBadFd(triggered_fd);
+        return false;
+    }
+    return true;
+}
+

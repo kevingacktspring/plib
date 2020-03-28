@@ -28,11 +28,11 @@ struct __attribute__((__packed__)) ReqeustVoteResp {
 inline static void compressReqeustVoteReq(const ReqeustVoteReq &reqeustVoteReq, DataPacket &dataProtocal) {
     dataProtocal.length =  sizeof(ReqeustVoteReq);
     dataProtocal.body = static_cast<char *>(malloc(sizeof(ReqeustVoteReq)));
-    memcpy(&dataProtocal.body, &reqeustVoteReq, sizeof(ReqeustVoteReq));
+    memcpy(dataProtocal.body, &reqeustVoteReq, sizeof(ReqeustVoteReq));
 }
 
 inline static void decompressReqeustVoteReq(const DataPacket &dataProtocal, ReqeustVoteReq &reqeustVoteReq) {
-    memcpy(&reqeustVoteReq, &dataProtocal.body, sizeof(ReqeustVoteReq));
+    memcpy(&reqeustVoteReq, dataProtocal.body, sizeof(ReqeustVoteReq));
 }
 
 inline static void compressReqeustVoteResp(const ReqeustVoteResp &reqeustVoteResp, DataPacket &dataProtocal) {
@@ -41,8 +41,8 @@ inline static void compressReqeustVoteResp(const ReqeustVoteResp &reqeustVoteRes
     memcpy(dataProtocal.body, &reqeustVoteResp, sizeof(ReqeustVoteResp));
 }
 
-inline static void decompressReqeustVoteResp(const DataPacket &dataProtocal, ReqeustVoteReq &reqeustVoteReq) {
-    memcpy(&reqeustVoteReq, &dataProtocal.body, sizeof(ReqeustVoteReq));
+inline static void decompressReqeustVoteResp(const DataPacket &dataProtocal, ReqeustVoteResp &reqeustVoteResp) {
+    memcpy(&reqeustVoteResp, &dataProtocal.body, sizeof(ReqeustVoteResp));
 }
 
 #endif //PLIB_REQUESTVOTECOMMAND_H

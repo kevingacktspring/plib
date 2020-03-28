@@ -9,15 +9,6 @@
 #include "AppendEntryLogic.h"
 #include "ClusterConfigTemp.h"
 
-enum class Type {
-    unknown = 0,
-    request_vote_request = 1,
-    request_vote_response = 2,
-    append_entries_request = 3,
-    append_entries_response = 4,
-    client_request = 5
-};
-
 class AppLoopStarter {
 
 public:

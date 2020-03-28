@@ -7,7 +7,6 @@
 #include "ProtocalClientTCP.h"
 
 ProtocalClientTCP::ProtocalClientTCP(VolatileState *node_state) : node_state(node_state) {
-    connfd = socket(AF_INET, SOCK_STREAM, 0);
     server = gethostbyname(node_state->servInetAddr);
     if (server == NULL) {
         fprintf(stderr, "Error, no such host as %s\n", node_state->servInetAddr);
@@ -38,6 +37,8 @@ const std::string &ProtocalClientTCP::handle(const std::string &message) {
  * connect to server
  */
 int ProtocalClientTCP::doConnect() {
+    // create socket
+    connfd = socket(AF_INET, SOCK_STREAM, 0);
     // remove nonblack first
     rm_fd_nonblock(connfd);
     // do connect
@@ -52,4 +53,8 @@ int ProtocalClientTCP::doConnect() {
     printf("Connect to node-id %d TCP server, %s : %d \n", node_state->nodeid, node_state->servInetAddr,
            node_state->servPort);
     return 0;
+}
+
+int ProtocalClientTCP::closeConnSocket() {
+    close(connfd);
 }

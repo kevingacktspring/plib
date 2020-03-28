@@ -9,7 +9,7 @@
 #include <malloc.h>
 #include "StateLocalData.h"
 
-static const uint8_t cluster_size = 5;
+static const uint8_t cluster_size = 3;
 static const uint16_t base_port = 9090;
 static const char *local_ip = "127.0.0.1\0";
 
