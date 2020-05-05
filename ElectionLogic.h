@@ -33,7 +33,7 @@ public:
 
     void stepDown(uint64_t newTerm);
 
-    uint64_t stepDown(uint64_t index) const {
+    uint64_t getTerm(uint64_t index) const {
         if (index == 0) {
             return 0;
         }
