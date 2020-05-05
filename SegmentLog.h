@@ -16,18 +16,27 @@
  * Structure
  */
 struct __attribute__ ((__packed__)) LogEntry {
-    uint64_t key_size;
-    char *key;
-    uint64_t val_size;
-    char *value;
-    LogEntry *next;
-    LogEntry *previous;
+    uint16_t    key_size;
+    char *      key;
+    uint16_t    val_size;
+    char *      value;
+    LogEntry *  next;
+    LogEntry *  previous;
 };
 
 struct __attribute__ ((__packed__)) LogEntries {
-    uint16_t length;  // length of log-entry array
-    uint64_t mem_size;  // size of LogEntries memory cost
-    char *start;
+    uint16_t    length;  // length of log-entry array
+    uint16_t    mem_size;  // size of LogEntries memory cost
+    LogEntry *  start;
+};
+
+struct __attribute__ ((__packed__)) Meta {
+    uint64_t term;
+};
+
+struct __attribute__ ((__packed__)) Entry {
+    Meta        meta;
+    LogEntry *  content;
 };
 
 static void compressLogEntries(const LogEntries &logEntries, DataPacket &dataProtocal) {
@@ -52,8 +61,8 @@ public:
 
     virtual ~SegmentLog() = default;
 
-    std::unordered_map<std::string, std::string> log_map;
-    std::vector<std::string> log;
+    std::unordered_map<std::string, Entry> log_map;
+    std::vector<Entry> log_vector;
 
     std::atomic<uint64_t> first_index{0};
     std::atomic<uint64_t> last_index{0};

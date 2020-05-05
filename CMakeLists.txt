@@ -46,6 +46,7 @@ set(CLUSTER_CONFIG_TEMP
         ClusterConfigTemp.h)
 
 set(UTILS
+        SharedQueue.h
         FdUtils.h)
 
 add_executable(starter AppLoopStarter.cpp
@@ -62,8 +63,6 @@ add_executable(starter AppLoopStarter.cpp
 
 add_executable(plib_server main.cpp
         ${CLUSTER_CONFIG_TEMP}
-        ${PROTOCAL_SERVER_EPOLL}
-        ${PROTOCAL_SERVER_SELECT}
         ${PROTOCAL_CLIENT_TCP}
         ${PROTOCAL_CLIENT_UDP}
         ${PROTOCAL_DATA}

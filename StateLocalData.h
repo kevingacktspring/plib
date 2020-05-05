@@ -7,29 +7,29 @@
 
 #include <stdint.h>
 #include "SegmentLog.h"
+#include "FdUtils.h"
 
 enum class Role {
     unknow      = 0,
     candidate   = 1,
-    leader      = 2
+    leader      = 2,
+    follower    = 3
 };
 
 /**
  * Persist state in all servers
  */
 struct __attribute__ ((__packed__)) PersistState {
-    uint64_t currentTerm;
-    uint64_t voteFor;
+    uint64_t currentTerm = 0;
+    uint64_t voteFor = 0;
     SegmentLog *logs;
-
-    uint64_t lastAppliedIndex;
 
     Role  nodeRole = Role::candidate;
     uint64_t electionTimeNano = 0;
 
     std::atomic<uint64_t> leaderId{0};
     std::atomic<uint64_t> commitIndex{0};
-    std::atomic<uint64_t> lastApplied{0};
+    std::atomic<uint64_t> lastAppliedIndex{0};
 
     PersistState(SegmentLog *logs) : logs(logs) {}
 };
@@ -42,14 +42,14 @@ struct __attribute__ ((__packed__)) VolatileState {
     const char * servInetAddr;
     const uint16_t servPort;
 
-    bool responedVote = false;
+    bool responsedVote = true;
     bool grantedVote = false;
 
     uint64_t matchIndex = 0;
     uint64_t nextIndex = 0;
 
-    uint64_t lastRequestTimeNano;
-    uint64_t nextRequestTimeNano;
+    uint64_t lastRequestTimeNano = current_time_nano();
+    uint64_t nextRequestTimeNano = current_time_nano();
 
     /**
      * Leader use this record to ensure leadership

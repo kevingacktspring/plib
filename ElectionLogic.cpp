@@ -8,11 +8,11 @@ void ElectionLogic::requestVote(){
 
 }
 
-void ElectionLogic::handleRequestVoteRequest(){
+void ElectionLogic::handleRequestVoteRequest(const ReqeustVoteReq &voteReq, ReqeustVoteResp &voteResp){
 
 }
 
-void ElectionLogic::handleReqeustVoteResponse(){
+void ElectionLogic::handleReqeustVoteResponse(const ReqeustVoteResp &voteResp){
 
 }
 
@@ -28,6 +28,9 @@ void ElectionLogic::leaderShipTimeout(){
 
 }
 
-void ElectionLogic::stepDown(){
+ElectionLogic::ElectionLogic(VolatileState *localConfig, VolatileState **clusterConfig, PersistState *persistState,
+                             ProtocalClientTCP **clusterTcpClients) : local_config(localConfig),
+                                                                      cluster_config(clusterConfig),
+                                                                      persistState(persistState),
+                                                                      clusterTcpClients(clusterTcpClients) {}
 
-}

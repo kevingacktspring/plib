@@ -106,7 +106,7 @@ int ProtocalServerEpoll::initService() {
                     if (writesize < 0)
                         printf("error in sendto");
 
-                    printf("server received %d/%d bytes: %s\n", strlen(recvbuffer), msgsize, recvbuffer);
+                    printf("server received %d/%d bytes: %s\n", msgsize, msgsize, recvbuffer);
                 }
                 continue;
             }
@@ -133,7 +133,7 @@ int ProtocalServerEpoll::initService() {
                     continue;
                 }
 
-                printf("Message from tcp client: %s \n", recvbuffer);
+                printf("Message from tcp client size: %d \n", msgsize);
 
                 //debug
                 /*
@@ -149,6 +149,13 @@ int ProtocalServerEpoll::initService() {
                     }
                 }
                 */
+
+                /**
+                 * avoid missing packet
+                 */
+                if (msgsize < sizeof(ReqeustVoteResp) && msgsize < sizeof(ReqeustVoteReq)) {
+                    continue;
+                }
 
                 /**
                  * deal with vote request and response
@@ -168,6 +175,12 @@ int ProtocalServerEpoll::initService() {
                               << "                term: " << deVoteReq.term << std::endl
                               << "        lastLogIndex: " << deVoteReq.lastLogIndex << std::endl
                               << "         lastLogTerm: " << deVoteReq.lastLogTerm << std::endl;
+                    // deal with this request
+                    ReqeustVoteResp *voteResp = static_cast<ReqeustVoteResp *>(malloc(sizeof(ReqeustVoteResp)));
+                    electionLogic.handleRequestVoteRequest(deVoteReq, std::ref(*voteResp));
+                    // push to msg_queue
+                    putRespInQueue(triggered_fd, voteResp);
+
                 } else if (dataPacket.msgtype == request_vote_response) {
                     // dont register write for response
                     // print debug
@@ -177,13 +190,15 @@ int ProtocalServerEpoll::initService() {
                               << "                            term: " << deVoteResp.term << std::endl
                               << "                     requestTerm: " << deVoteResp.requestTerm << std::endl
                               << "                      voteGrated: " << deVoteResp.voteGrated << std::endl;
+                    // deal with resp logic
+                    electionLogic.handleReqeustVoteResponse(std::ref(deVoteResp));
                 }
 
                 //
                 free(dataPacket.body);
 
                 // general logs
-                printf("Server received %d/%d bytes: %s\n", strlen(recvbuffer), msgsize, recvbuffer);
+                printf("Server received %d/%d bytes: %s\n", msgsize, msgsize, recvbuffer);
             }
 
             /**
@@ -195,33 +210,58 @@ int ProtocalServerEpoll::initService() {
                 // debug
                 // sprintf(recvbuffer, "HTTP/1.1 200 OK\r\nContent-length: %d\r\n\r\nreceived vote\0\n", 15);
 
-                // debug
-                ReqeustVoteResp voteResp {0, node_state->nodeid, true, 0};
-                DataPacket dataPacket;
-                dataPacket.msgtype = Type::request_vote_response;
-                compressReqeustVoteResp(voteResp, dataPacket);
+                /**
+                 * check null-ptr
+                 */
+                auto triggered_fd_msg_entry = resp_message_map.find(triggered_fd);
+                if (triggered_fd_msg_entry == resp_message_map.end()) {
+                    // no-message
+                    continue;
+                }
+                /**
+                 * response-queue of this triggered-fd
+                 */
+                SharedQueue<ReqeustVoteResp *> *resp_queue = triggered_fd_msg_entry->second;
 
-                MessagePacket messagePacket;
-                compressDataPacket(dataPacket, messagePacket);
-
-                // int nwrite, datasize = strlen(recvbuffer);
-                int nwrite, datasize = messagePacket.length;
-                writesize = datasize;
-                while (writesize > 0) {
-                    // nwrite = write(triggered_fd, recvbuffer + datasize - writesize, writesize);
-                    nwrite = write(triggered_fd, messagePacket.body + datasize - writesize, writesize);
-                    if (nwrite < writesize) {
-                        if (nwrite == -1 && errno != EAGAIN) {
-                            perror("write error");
-                            rmBadFd(triggered_fd);
-                        }
+                while (!(resp_queue->empty())) {
+                    ReqeustVoteResp *voteRespMsg;
+                    if (!resp_queue->front(std::ref(voteRespMsg))) {
                         break;
                     }
-                    writesize -= nwrite;
-                }
+                    resp_queue->pop_front();
+                    /**
+                     * serialize data
+                     */
+                    DataPacket dataPacketResp;
+                    dataPacketResp.msgtype = Type::request_vote_response;
+                    compressReqeustVoteResp(std::ref(*voteRespMsg), dataPacketResp);
 
-                //
-                free(messagePacket.body);
+                    MessagePacket messagePacketResp;
+                    compressDataPacket(dataPacketResp, messagePacketResp);
+
+                    /**
+                     * send resp to socket
+                     */
+                    // int nwrite, datasize = strlen(recvbuffer);
+                    int nwrite, datasize = messagePacketResp.length;
+                    writesize = datasize;
+                    while (writesize > 0) {
+                        // nwrite = write(triggered_fd, recvbuffer + datasize - writesize, writesize);
+                        nwrite = write(triggered_fd, messagePacketResp.body + datasize - writesize, writesize);
+                        if (nwrite < writesize) {
+                            if (nwrite == -1 && errno != EAGAIN) {
+                                perror("write error");
+                                rmBadFd(triggered_fd);
+                            }
+                            break;
+                        }
+                        writesize -= nwrite;
+                    }
+
+                    //
+                    free(voteRespMsg);
+                    free(messagePacketResp.body);
+                }
 
                 // register epoll read when write completed
                 memset(&tcp_accept_event, 0, sizeof(struct epoll_event));
@@ -233,7 +273,7 @@ int ProtocalServerEpoll::initService() {
                     continue;
                 }
             }
-            printf("Done triggered-fd: %d \n", triggered_fd);
+            printf("%s, Done triggered-fd: %d \n", current_time_utc().data(), triggered_fd);
         }
     }
     return 0;
@@ -247,9 +287,11 @@ int ProtocalServerEpoll::initService() {
  */
 ProtocalServerEpoll::ProtocalServerEpoll(VolatileState *node_state,
                                          VolatileState **cluster_state,
-                                         uint8_t cluster_size) : node_state(node_state),
-                                                                 cluster_state(cluster_state),
-                                                                 cluster_size(cluster_size) {
+                                         uint16_t cluster_size,
+                                         ElectionLogic &electionLogic) : node_state(node_state),
+                                                                         cluster_state(cluster_state),
+                                                                         cluster_size(cluster_size),
+                                                                         electionLogic(electionLogic) {
     std::cout << " Server constructed: "
               << " node: " << node_state->nodeid
               << " address: " << node_state->servInetAddr
@@ -360,6 +402,20 @@ ProtocalServerEpoll::ProtocalServerEpoll(VolatileState *node_state,
 ProtocalServerEpoll::~ProtocalServerEpoll() {
     close(udpfd);
     close(listenfd);
+
+    /**
+     * resp map
+     */
+     for(auto it = resp_message_map.begin(); it != resp_message_map.end(); ++it) {
+         while (!it->second->empty()) {
+             ReqeustVoteResp *resp;
+             if(it->second->front(std::ref(resp))) {
+                 it->second->pop_front();
+                 free(resp);
+             }
+         }
+         delete (it->second); // delect sharedQueue instance
+     }
 }
 
 void ProtocalServerEpoll::rmBadFd(const int badfd) {
@@ -405,23 +461,33 @@ void ProtocalServerEpoll::registerClient(ProtocalClientTCP *client) {
     fprintf(stdout, "try register client node-id; %d \n", client->node_state->nodeid);
 
     /**
+     * try connect first
+     * open connect-fd
+     * make sure socket connection fd not 0 for map-key
+     */
+    bool connected = true;
+    if (client->doConnect() < 0) {
+        fprintf(stdout, "fail register client node-id: %d \n", client->node_state->nodeid);
+        client->closeConnSocket();
+        connected = false;
+    }
+
+    /**
      * record to client-map
      */
     clientmap.insert({client->connfd, client});
 
     /**
-     * try connect
+     * record to resp-message
      */
-    if (client->doConnect() < 0) {
-        fprintf(stdout, "fail register client node-id: %d \n", client->node_state->nodeid);
-        client->closeConnSocket();
-        return;
-    }
+    resp_message_map.insert({client->connfd, new SharedQueue<ReqeustVoteResp *>()});
 
     /**
      * epoll tcp listen event
      */
-    this->addClientEpollEvent(client);
+    if (connected) {
+        this->addClientEpollEvent(client);
+    }
 }
 
 /**
@@ -470,5 +536,15 @@ bool ProtocalServerEpoll::regEpollResponse(const epoll_event comming_event, cons
         return false;
     }
     return true;
+}
+
+void ProtocalServerEpoll::putRespInQueue(const int triggered_fd, ReqeustVoteResp *voteResp) {
+    auto triggered_fd_msg_entry = resp_message_map.find(triggered_fd);
+    if (triggered_fd_msg_entry != resp_message_map.end()) {
+        SharedQueue<ReqeustVoteResp *> *resp_queue = triggered_fd_msg_entry->second;
+        resp_queue->push_back(std::move(voteResp));
+    } else {
+        resp_message_map.insert({triggered_fd, new SharedQueue<ReqeustVoteResp *>(std::move(voteResp))});
+    }
 }
 

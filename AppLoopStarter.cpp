@@ -18,13 +18,7 @@
 #include "AppLoopStarter.h"
 #include "RequestVoteCommand.h"
 
-AppLoopStarter::AppLoopStarter(int nodeid) : nodeid(nodeid) {
-
-    /**
-     * cache my node position
-     */
-    node_position = nodeid - 1;
-
+AppLoopStarter::AppLoopStarter(int nodeid) : nodeid(nodeid), node_position(nodeid - 1) {
     /**
      * initialize cluster in conf
      */
@@ -69,10 +63,21 @@ AppLoopStarter::~AppLoopStarter() {
 
 void AppLoopStarter::initialize() {
     /**
+     * initialize election logic
+     */
+    electionLogic = ElectionLogic(*(cluster_config + node_position), cluster_config, persistState, clusterTcpClients);
+
+    /**
+     * initialize append-entry logic
+     */
+    appendEntryLogic = AppendEntryLogic(*(cluster_config + node_position), cluster_config, persistState,
+                                        clusterTcpClients);
+
+    /**
      * Initialize node server
      */
     protocalServerEpoll = new ProtocalServerEpoll(
-            *(cluster_config + node_position), cluster_config, cluster_size);
+            *(cluster_config + node_position), cluster_config, cluster_size, std::ref(electionLogic));
 
     /**
      * Initialize client for peer nodes
@@ -102,7 +107,13 @@ void AppLoopStarter::initialize() {
  * @return
  */
 void AppLoopStarter::run() {
-    int round = 500;
+
+    while (true) {
+        electionLogic.requestVote();
+        std::this_thread::sleep_for(std::chrono::seconds(10));
+    }
+
+    /*int round = 500;
     while (round > 0) {
         if (nodeid == 1) {
             ProtocalClientTCP *node2 = clusterTcpClients[1];
@@ -121,7 +132,7 @@ void AppLoopStarter::run() {
         }
         --round;
         std::this_thread::sleep_for(std::chrono::seconds(5));
-    }
+    }*/
 
     /*
     uint64_t round = 1;

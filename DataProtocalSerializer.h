@@ -28,22 +28,23 @@ struct __attribute__((__packed__)) MessagePacket {
 };
 
 static void compressDataPacket(const DataPacket &dataPacket, MessagePacket &messagePacket) {
-    messagePacket.length = sizeof(uint8_t) + sizeof(uint64_t) + dataPacket.length;
+    messagePacket.length = sizeof(DataPacket::msgtype) + sizeof(DataPacket::length) + dataPacket.length;
     messagePacket.body = static_cast<char *>(malloc(messagePacket.length));
-    memcpy(messagePacket.body, &dataPacket.msgtype, sizeof(uint8_t));
-    memcpy(messagePacket.body + sizeof(uint8_t), &dataPacket.length, sizeof(uint64_t));
-    memcpy(messagePacket.body + sizeof(uint8_t) + sizeof(uint64_t), dataPacket.body, dataPacket.length);
+    memcpy(messagePacket.body, &dataPacket.msgtype, sizeof(DataPacket::msgtype));
+    memcpy(messagePacket.body + sizeof(DataPacket::msgtype), &dataPacket.length, sizeof(DataPacket::length));
+    memcpy(messagePacket.body + sizeof(DataPacket::msgtype) + sizeof(DataPacket::length),
+           dataPacket.body, dataPacket.length);
     free(dataPacket.body);
 }
 
 static void deCompressDataPacket(const MessagePacket &messagePacket, DataPacket &dataPacket) {
     bzero(&dataPacket, sizeof(DataPacket));
-    memcpy(&dataPacket.msgtype, messagePacket.body, sizeof(uint8_t));
-    memcpy(&dataPacket.length, messagePacket.body + sizeof(uint8_t), sizeof(uint64_t));
+    memcpy(&dataPacket.msgtype, messagePacket.body, sizeof(DataPacket::msgtype));
+    memcpy(&dataPacket.length, messagePacket.body + sizeof(DataPacket::msgtype), sizeof(DataPacket::length));
 
-    uint64_t body_size = messagePacket.length - sizeof(uint8_t) - sizeof(uint64_t);
+    uint64_t body_size = messagePacket.length - sizeof(DataPacket::msgtype) - sizeof(DataPacket::length);
     dataPacket.body = static_cast<char *>(malloc(body_size));
-    memcpy(dataPacket.body, messagePacket.body + sizeof(uint8_t) + sizeof(uint64_t), body_size);
+    memcpy(dataPacket.body, messagePacket.body + sizeof(DataPacket::msgtype) + sizeof(DataPacket::length), body_size);
 }
 
 

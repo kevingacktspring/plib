@@ -18,7 +18,9 @@
 #include <map>
 #include <atomic>
 
+#include "SharedQueue.h"
 #include "StateLocalData.h"
+#include "ElectionLogic.h"
 #include "ProtocalClientTCP.h"
 
 #define MAXEPOLLSIZE 1000
@@ -27,7 +29,7 @@
 
 class ProtocalServerEpoll {
 public:
-    ProtocalServerEpoll(VolatileState *node_state, VolatileState *(*cluster_state), uint8_t cluster_size);
+    ProtocalServerEpoll(VolatileState *node_state, VolatileState *(*cluster_state), uint16_t cluster_size, ElectionLogic &electionLogic);
 
     virtual ~ProtocalServerEpoll();
 
@@ -46,6 +48,8 @@ public:
     void closeEpollServer();
 
     bool regEpollResponse(const epoll_event comming_event, const int triggered_fd);
+
+    void putRespInQueue(const int triggered_fd, ReqeustVoteResp *voteResp);
 
 protected:
     /**
@@ -83,7 +87,8 @@ protected:
      */
     VolatileState *node_state;  // current-server state
     VolatileState **cluster_state;  // cluster-servers state
-    uint8_t cluster_size;
+    uint16_t cluster_size;
+    ElectionLogic &electionLogic;
 
     /**
      * read/write buffer
@@ -93,9 +98,14 @@ protected:
     char recvbuffer[BUFSIZE]; /* message buf */
 
     /**
-     * map<fd, client>
+     * map<fd, client-fd>
      */
     std::map<int, ProtocalClientTCP *> clientmap;
+
+    /**
+     * map<fd, resp-message-queue>
+     */
+    std::map<int, SharedQueue<ReqeustVoteResp *> *> resp_message_map;
 
     std::atomic_bool keep_running = ATOMIC_VAR_INIT(true);
 };

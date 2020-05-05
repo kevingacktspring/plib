@@ -16,6 +16,7 @@ struct __attribute__((__packed__)) ReqeustVoteReq {
     uint16_t candidateId;
     uint64_t lastLogIndex;
     uint64_t lastLogTerm;
+    uint64_t timeInNano;
 };
 
 struct __attribute__((__packed__)) ReqeustVoteResp {
@@ -23,6 +24,7 @@ struct __attribute__((__packed__)) ReqeustVoteResp {
     uint16_t candidateId;
     bool voteGrated;
     uint64_t requestTerm;
+    uint64_t timeInNano;
 };
 
 inline static void compressReqeustVoteReq(const ReqeustVoteReq &reqeustVoteReq, DataPacket &dataProtocal) {
@@ -42,7 +44,7 @@ inline static void compressReqeustVoteResp(const ReqeustVoteResp &reqeustVoteRes
 }
 
 inline static void decompressReqeustVoteResp(const DataPacket &dataProtocal, ReqeustVoteResp &reqeustVoteResp) {
-    memcpy(&reqeustVoteResp, &dataProtocal.body, sizeof(ReqeustVoteResp));
+    memcpy(&reqeustVoteResp, dataProtocal.body, sizeof(ReqeustVoteResp));
 }
 
 #endif //PLIB_REQUESTVOTECOMMAND_H

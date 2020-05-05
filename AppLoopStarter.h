@@ -55,12 +55,12 @@ private:
     /**
      * election logic
      */
-    ElectionLogic electionLogic();
+    ElectionLogic electionLogic = ElectionLogic(nullptr, nullptr, nullptr, nullptr);
 
     /**
      * append entry logic
      */
-    AppendEntryLogic appendEntryLogic();
+    AppendEntryLogic appendEntryLogic = AppendEntryLogic(nullptr, nullptr, nullptr, nullptr);
 };
 
 #endif //PLIB_APPLOOPSTARTER_H

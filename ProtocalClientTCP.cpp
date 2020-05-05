@@ -23,7 +23,7 @@ ProtocalClientTCP::ProtocalClientTCP(VolatileState *node_state) : node_state(nod
 }
 
 ProtocalClientTCP::~ProtocalClientTCP() {
-    close(connfd);
+    closeConnSocket();
     printf("UDP client exit\n");
 }
 
@@ -56,5 +56,6 @@ int ProtocalClientTCP::doConnect() {
 }
 
 int ProtocalClientTCP::closeConnSocket() {
+    shutdown(connfd, SHUT_RDWR);
     close(connfd);
 }
